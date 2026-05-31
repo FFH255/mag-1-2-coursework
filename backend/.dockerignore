@@ -1,0 +1,9 @@
+.git/
+dist/
+*.log
+*.test
+*.out
+.DS_Store
+.idea/
+.vscode/
+specs/

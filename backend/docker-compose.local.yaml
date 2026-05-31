@@ -1,0 +1,66 @@
+name: blindtyping-backend-local
+
+services:
+    backend:
+        build:
+            context: .
+            dockerfile: Dockerfile.local
+        container_name: backend-local
+        ports:
+            - "5005:5005"
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        networks:
+            - net
+        restart: unless-stopped
+
+    postgres:
+        image: postgres:18
+        container_name: postgres-local
+        restart: always
+        environment:
+            POSTGRES_USER: user
+            POSTGRES_PASSWORD: user
+            POSTGRES_DB: user
+        ports:
+            - "5432:5432"
+        volumes:
+            - bt-local-pg-data:/var/lib/postgresql
+        networks:
+            - net
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "user"]
+            interval: 2s
+            timeout: 3s
+            retries: 10
+
+    redis:
+        image: redis:7-alpine
+        container_name: redis-local
+        restart: always
+        ports:
+            - "6379:6379"
+        environment:
+            REDIS_PASSWORD: user
+        volumes:
+            - bt-local-redis-data:/data
+        networks:
+            - net
+        command: redis-server --appendonly no --requirepass user
+        healthcheck:
+            test: ["CMD", "redis-cli", "-a", "user", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+            start_period: 3s
+
+networks:
+    net:
+        driver: bridge
+
+volumes:
+    bt-local-pg-data:
+    bt-local-redis-data:

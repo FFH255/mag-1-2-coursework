@@ -1,0 +1,49 @@
+# -----------------------------
+# Stage 1: Build
+# -----------------------------
+FROM golang:1.24.0-alpine AS builder
+
+# Устанавливаем зависимости для сборки
+RUN apk add --no-cache git ca-certificates
+
+# Рабочая директория
+WORKDIR /app
+
+# Копируем go.mod и go.sum для кэширования зависимостей
+COPY go.mod go.sum ./
+
+# Загружаем зависимости
+RUN go mod download
+
+# Копируем весь исходный код
+COPY ./src ./src
+COPY ./config.local.yaml ./config.yaml
+COPY .env .env
+
+# Собираем бинарь
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ./main ./src/cmd/main.go
+
+# -----------------------------
+# Stage 2: Production image
+# -----------------------------
+FROM alpine:3.18
+
+# Устанавливаем сертификаты
+RUN apk add --no-cache ca-certificates
+
+# Рабочая директория
+WORKDIR /app
+
+# Копируем бинарь и конфиги
+COPY --from=builder /app/main ./main
+COPY --from=builder /app/config.yaml ./config.yaml
+COPY --from=builder /app/.env ./.env
+
+# Копируем миграции
+COPY --from=builder /app/src/migrations ./migrations
+
+# EXPOSE
+EXPOSE 5005
+
+# Точка входа
+ENTRYPOINT ["/app/main"]
